@@ -66,9 +66,15 @@ nie im HTML:
 
 | Variable | Zweck |
 |---|---|
-| `UPSTASH_REDIS_REST_URL` | Adresse der Upstash-Datenbank |
-| `UPSTASH_REDIS_REST_TOKEN` | Token dazu, bleibt serverseitig |
+| `UPSTASH_REDIS_REST_URL` **oder** `KV_REST_API_URL` | REST-Adresse der Datenbank (`https://…`) |
+| `UPSTASH_REDIS_REST_TOKEN` **oder** `KV_REST_API_TOKEN` | Token dazu, bleibt serverseitig |
 | `PLAN_WRITE_KEY` | frei gewählter Schlüssel; **Lesen ist offen, Schreiben nur damit** |
+
+Die beiden Namensvarianten gibt es, weil die **Upstash-Integration in Vercel die `KV_`-Namen
+anlegt**, ein direkt bei Upstash erzeugter Speicher aber die `UPSTASH_`-Namen. `env()` nimmt
+beide. Nicht verwendbar und deshalb aussortiert: `REDIS_URL` und `KV_URL` (das ist die
+`redis://`-TCP-Adresse, über REST unbrauchbar – `env()` verwirft alles ohne `http`) sowie
+`KV_REST_API_READ_ONLY_TOKEN`, das nicht schreiben kann.
 
 Der Client liest den Schlüssel aus dem Link (`?k=…` oder `#k=…`). Ohne Schlüssel ist die Seite
 Nur-Lesen und sagt das auch. Redis-Schlüssel: `plan:current` (aktueller Datensatz),

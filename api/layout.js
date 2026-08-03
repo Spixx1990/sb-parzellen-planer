@@ -4,9 +4,12 @@
  * GET  /api/layout?history=1   -> letzte 10 Staende  {ok,history:[...]}
  * POST /api/layout             -> speichern         {layout,rev,by,key,force}
  *
- * Umgebungsvariablen (Vercel -> Settings -> Environment Variables):
- *   UPSTASH_REDIS_REST_URL     von der Upstash-Datenbank
- *   UPSTASH_REDIS_REST_TOKEN   dito, bleibt serverseitig
+ * Umgebungsvariablen (Vercel -> Settings -> Environments -> Production):
+ *   UPSTASH_REDIS_REST_URL / _TOKEN   oder  KV_REST_API_URL / KV_REST_API_TOKEN
+ *     Die Upstash-Integration in Vercel legt die KV_-Namen an, ein direkt bei
+ *     Upstash angelegter Speicher die UPSTASH_-Namen. Beide werden akzeptiert.
+ *     Nicht brauchbar sind REDIS_URL und KV_URL (redis://-Protokoll, kein REST)
+ *     und KV_REST_API_READ_ONLY_TOKEN (kann nicht schreiben).
  *   PLAN_WRITE_KEY             frei gewaehlt; Schreiben nur mit diesem Schluessel
  *
  * Fehlen die Variablen, antwortet die Funktion mit 503 und "configured:false" -
@@ -22,9 +25,12 @@ var HIST_MAX = 10;
 var MAX_BYTES = 256 * 1024;       // ein Layout ist wenige KB; alles darueber ist Unfug
 
 function env() {
-  var url = process.env.UPSTASH_REDIS_REST_URL,
-      tok = process.env.UPSTASH_REDIS_REST_TOKEN;
-  return url && tok ? { url: url.replace(/\/+$/, ""), tok: tok } : null;
+  var url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
+      tok = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (!url || !tok) return null;
+  /* redis://… waere die TCP-Adresse; ueber REST laeuft nur https://… */
+  if (!/^https?:\/\//i.test(url)) return null;
+  return { url: url.replace(/\/+$/, ""), tok: tok };
 }
 
 /* Ein Redis-Befehl als REST-Aufruf: ["SET","key","wert"] */
@@ -59,7 +65,8 @@ function send(res, code, obj) {
 module.exports = async function (req, res) {
   var e = env();
   if (!e) return send(res, 503, { ok: false, configured: false,
-    error: "Speicher nicht eingerichtet – UPSTASH_REDIS_REST_URL und _TOKEN fehlen." });
+    error: "Speicher nicht eingerichtet – es fehlt ein REST-Paar: " +
+           "UPSTASH_REDIS_REST_URL/_TOKEN oder KV_REST_API_URL/KV_REST_API_TOKEN." });
 
   try {
     if (req.method === "GET") {

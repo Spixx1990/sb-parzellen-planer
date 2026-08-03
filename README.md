@@ -28,11 +28,13 @@ letzten zehn Stände stehen als „Vorversion" zum Zurückholen bereit.
 
 ### Einrichtung (einmalig, im Vercel-Dashboard)
 
-1. **Storage → Create Database → Upstash Redis** anlegen und mit dem Projekt verbinden.
-   `UPSTASH_REDIS_REST_URL` und `UPSTASH_REDIS_REST_TOKEN` setzt Vercel dabei selbst.
-2. **Settings → Environment Variables**: `PLAN_WRITE_KEY` anlegen, Wert frei wählen – das ist
-   der Schlüssel für den Link.
-3. Einmal neu deployen (Deployments → Redeploy), damit die Variablen greifen.
+1. **Storage → Create Database → Upstash Redis** anlegen (Region Frankfurt, Plan Free, Read
+   Regions leer) und mit dem Projekt verbinden. Die Zugangsdaten setzt Vercel selbst – je nach
+   Weg als `KV_REST_API_URL`/`KV_REST_API_TOKEN` oder `UPSTASH_REDIS_REST_URL`/`_TOKEN`. Beide
+   Schreibweisen versteht die Funktion.
+2. **Settings → Environments → Production**: `PLAN_WRITE_KEY` anlegen, Wert frei wählen – das
+   ist der Schlüssel für den Link.
+3. Einmal neu deployen, damit die Variablen greifen.
 
 Solange das nicht eingerichtet ist, bleibt die Seite voll bedienbar; „Speichern" wirkt dann nur
 im eigenen Browser und die Statuszeile weist darauf hin.
