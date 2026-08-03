@@ -22,23 +22,21 @@ Live: `https://sb-parzellen-planer.vercel.app/`
 Kein Build-Schritt, kein Framework, keine Abhängigkeiten. Vercel-Preset: **Other**,
 Build Command und Output Directory leer.
 
-## Architektur: zwei Stufen
+## Architektur
 
-Der Plan steht **statisch im HTML** (`<g id="world">` mit `#bglayer` und `#dyn`) und ist
-damit auch ohne JavaScript vollständig und maßstäblich sichtbar. Läuft JS, entfernt es den
-Hinweis `#viewonly` und zeichnet `#dyn` identisch neu.
+**`render()` ist die einzige Quelle des Plans.** Es leert `<g id="dyn">` und zeichnet alles neu:
+Gasse, Raster, Parzellen, Maßketten, Objekte, Maßstab. Geometrie, Farben und Beschriftungen
+stehen genau einmal im Code – wer etwas ändert, ändert es dort und nirgends sonst.
 
-Ursprünglich stand das für die Dateivorschau von iOS (Quick Look), die keine Skripte ausführt.
-Das ist **kein aktives Ziel mehr** – der Desktop-Browser führt Skripte immer aus. Die Stufe
-lebt bisher nur weiter, weil sie noch niemand entfernt hat; sie ist kein Grund, irgendetwas am
-Desktop einzuschränken.
+Im Markup stehen nur die leeren Hüllen: `<g id="world">` mit `#bglayer` (inklusive `#bgimg`)
+und dem leeren `#dyn`. **`#bglayer` wird nie neu erzeugt**, `render()` aktualisiert nur
+Transform und Deckkraft, und `BG.src` liest die Bildquelle aus `#bgimg`. Beides muss also
+im HTML stehen bleiben.
 
-**Wichtig bei Änderungen:** Geometrie, Farben und Beschriftungen existieren doppelt –
-im statischen Markup und in `render()`. Wer eines ändert, muss das andere angleichen,
-sonst springt die Ansicht beim Laden. Das ist der Preis der zwei Stufen und der teuerste
-Posten in dieser Datei – wenn die statische Stufe fällt, fällt auch diese Doppelpflege weg.
-
-`#bglayer` wird nie neu erzeugt, nur Transform und Deckkraft werden aktualisiert.
+Ohne JavaScript bleibt der Plan leer; darauf weist ein `<noscript>` hin. Früher stand der
+Plan zusätzlich statisch im Markup, damit ihn die iOS-Dateivorschau ohne Skripte zeigen
+konnte. Seit die Seite über Vercel läuft, öffnet auch das Handy sie im echten Browser mit
+Skripten – die Doppelung ist entfallen und soll nicht zurückkommen.
 
 ## Layout: Arbeitsansicht am Desktop
 
@@ -96,13 +94,14 @@ gleicher Spezifität zurücksetzen (`body.js …`), sonst schneidet `overflow:hi
 npm install jsdom
 node -e "const {JSDOM}=require('jsdom');const fs=require('fs');
 const h=fs.readFileSync('index.html','utf8');
-const a=new JSDOM(h,{runScripts:'outside-only'});
-console.log('ohne JS:',a.window.document.querySelectorAll('#plan *').length,'Elemente');
-const b=new JSDOM(h,{runScripts:'dangerously',pretendToBeVisual:true});
-console.log('mit JS:',b.window.document.querySelectorAll('#palette button').length,'Chips');"
+const d=new JSDOM(h,{runScripts:'dangerously',pretendToBeVisual:true}).window.document;
+console.log('Chips:',d.querySelectorAll('#palette button').length);
+console.log('Plan-Elemente:',d.querySelectorAll('#dyn *').length);
+console.log('Objekte:',d.querySelectorAll('#dyn g.obj').length);"
 ```
 
-Prüft beide Stufen: statischer Plan vorhanden, Skript läuft fehlerfrei durch.
+Erwartet: 23 Chips, über 100 Plan-Elemente, 5 Objekte. Bleibt `#dyn` leer, ist `render()`
+nicht durchgelaufen – dann die Konsole auf einen Skriptfehler prüfen.
 
 ## Deployment-Workflow
 
