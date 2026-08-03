@@ -3,8 +3,8 @@
 Interaktiver Belegungsplan für die gebuchten Parzellen. Statische Seite ohne Build-Schritt:
 `index.html` enthält Markup, CSS und JS, `luftbild.jpg` liegt daneben.
 
-Geplant wird am Desktop: Objektleiste links, Plan rechts. Auf dem Handy ist die Seite zum
-Anschauen gedacht – der Plan steht oben, die Objektliste darunter.
+Gearbeitet wird am Desktop: Objektleiste links, Plan rechts. Auf schmalen Fenstern klappt
+das auf eine Spalte um, Plan oben und Objektliste darunter.
 
 Live: https://sb-parzellen-planer.vercel.app/
 
@@ -24,7 +24,8 @@ Live: https://sb-parzellen-planer.vercel.app/
 
 ## Deployment
 
-Vercel, Preset **Other**, Build Command und Output Directory leer. Push auf `main` deployt
-in Produktion, Push auf einen Branch erzeugt eine Preview-URL.
+Vercel, Preset **Other**, Build Command und Output Directory leer. Direkt auf `main` pushen –
+das deployt nach Produktion und ist nach ein bis zwei Minuten live. Zurück geht es per
+`git revert`.
 
 Technische Details, Konventionen und Fallstricke stehen in `CLAUDE.md`.

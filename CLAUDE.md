@@ -4,9 +4,9 @@ Interaktiver Belegungsplan für einen privat gebuchten Camping-Stellplatz (Volks
 Zweck: Zelte, Fahrzeuge und Inventar maßstäblich auf der gebuchten Fläche anordnen,
 bevor vor Ort improvisiert wird.
 
-**Gearbeitet wird am Desktop.** Das ist das Hauptmedium, danach wird das Layout ausgerichtet.
-Das Handy ist Ansichtsmedium – der Link wird in einer Gruppe geteilt, damit alle den Plan
-anschauen können; geplant wird dort nicht.
+**Der Desktop ist das Hauptmedium.** Layout, Bedienung und alle Entscheidungen richten sich
+danach. Das Handy ist kein Thema: es muss nicht kaputt sein, wird aber nicht optimiert und ist
+kein Grund, am Desktop Abstriche zu machen.
 
 Live: `https://sb-parzellen-planer.vercel.app/`
 
@@ -25,14 +25,18 @@ Build Command und Output Directory leer.
 ## Architektur: zwei Stufen
 
 Der Plan steht **statisch im HTML** (`<g id="world">` mit `#bglayer` und `#dyn`) und ist
-damit auch ohne JavaScript vollständig und maßstäblich sichtbar. Grund: die
-Dateivorschau von iOS (Quick Look) führt keine Skripte aus – dort soll man den Plan
-trotzdem lesen können. Läuft JS, entfernt es den Hinweis `#viewonly` und zeichnet
-`#dyn` identisch neu.
+damit auch ohne JavaScript vollständig und maßstäblich sichtbar. Läuft JS, entfernt es den
+Hinweis `#viewonly` und zeichnet `#dyn` identisch neu.
+
+Ursprünglich stand das für die Dateivorschau von iOS (Quick Look), die keine Skripte ausführt.
+Das ist **kein aktives Ziel mehr** – der Desktop-Browser führt Skripte immer aus. Die Stufe
+lebt bisher nur weiter, weil sie noch niemand entfernt hat; sie ist kein Grund, irgendetwas am
+Desktop einzuschränken.
 
 **Wichtig bei Änderungen:** Geometrie, Farben und Beschriftungen existieren doppelt –
 im statischen Markup und in `render()`. Wer eines ändert, muss das andere angleichen,
-sonst springt die Ansicht beim Laden.
+sonst springt die Ansicht beim Laden. Das ist der Preis der zwei Stufen und der teuerste
+Posten in dieser Datei – wenn die statische Stufe fällt, fällt auch diese Doppelpflege weg.
 
 `#bglayer` wird nie neu erzeugt, nur Transform und Deckkraft werden aktualisiert.
 
@@ -43,9 +47,8 @@ Ab **900 px** Fensterbreite ist die Seite eine zweispaltige Arbeitsfläche: Obje
 Darunter läuft alles gestapelt, Plan zuerst und Objektliste danach (`order` im Flex).
 
 Der Umschalter ist die Klasse **`js` am `<body>`**, die das Skript direkt nach der
-SVG-Prüfung setzt. Ohne Skript greift keine der Shell-Regeln – der statische Plan bleibt
-so gestapelt und lesbar, wie ihn die iOS-Dateivorschau braucht. Neue Layout-Regeln für die
-Arbeitsansicht deshalb immer mit `body.js` davor.
+SVG-Prüfung setzt. Ohne Skript greift keine der Shell-Regeln, der statische Plan bleibt
+gestapelt lesbar. Neue Layout-Regeln für die Arbeitsansicht deshalb immer mit `body.js` davor.
 
 Der Plan füllt die Resthöhe über `flex:1` und das SVG liegt darin `position:absolute;inset:0` –
 so muss Safari keine prozentuale Höhe in einem Flex-Element auflösen (`height:auto` am SVG
@@ -103,11 +106,17 @@ Prüft beide Stufen: statischer Plan vorhanden, Skript läuft fehlerfrei durch.
 
 ## Deployment-Workflow
 
-Auf einem Branch arbeiten, nicht auf `main` – Vercel liefert pro Push eine eigene
-Preview-URL zum Testen am Handy. Erst mergen, wenn es passt; die geteilte Adresse
-bleibt bis dahin unverändert. Auf dem Hobby-Tarif ist die Produktions-URL öffentlich
-erreichbar, geschützt wird nur über Noindex – deshalb keine Klarnamen oder
-personenbezogenen Daten in den Plan schreiben.
+**Direkt auf `main` arbeiten und pushen.** Der Zweck ist, die Änderung sofort live zu sehen –
+kein Branch, keine Preview-URL, kein Pull Request, solange nicht ausdrücklich danach gefragt
+wird. Push auf `main` deployt nach `https://sb-parzellen-planer.vercel.app/`, nach ein bis zwei
+Minuten steht es dort.
+
+Das trägt, weil das Projekt privat ist und niemand außer dem Betreiber davon abhängt: geht
+etwas schief, ist der Rückweg ein `git revert <sha>` plus Push. Deshalb lieber schnell
+deployen als lange absichern.
+
+Auf dem Hobby-Tarif ist die Produktions-URL öffentlich erreichbar, geschützt wird nur über
+Noindex – deshalb keine Klarnamen oder personenbezogenen Daten in den Plan schreiben.
 
 Das Luftbild ist ein Google-Maps-Ausschnitt inklusive Wasserzeichen: privat nutzen,
 nicht veröffentlichen, nicht in Aushänge oder Social Media.
