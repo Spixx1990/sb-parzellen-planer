@@ -2,7 +2,11 @@
 
 Interaktiver Belegungsplan für einen privat gebuchten Camping-Stellplatz (Volksfest).
 Zweck: Zelte, Fahrzeuge und Inventar maßstäblich auf der gebuchten Fläche anordnen,
-bevor vor Ort improvisiert wird. Der Link wird in einer Gruppe geteilt, Hauptgerät ist das Handy.
+bevor vor Ort improvisiert wird.
+
+**Gearbeitet wird am Desktop.** Das ist das Hauptmedium, danach wird das Layout ausgerichtet.
+Das Handy ist Ansichtsmedium – der Link wird in einer Gruppe geteilt, damit alle den Plan
+anschauen können; geplant wird dort nicht.
 
 Live: `https://sb-parzellen-planer.vercel.app/`
 
@@ -31,6 +35,22 @@ im statischen Markup und in `render()`. Wer eines ändert, muss das andere angle
 sonst springt die Ansicht beim Laden.
 
 `#bglayer` wird nie neu erzeugt, nur Transform und Deckkraft werden aktualisiert.
+
+## Layout: Arbeitsansicht am Desktop
+
+Ab **900 px** Fensterbreite ist die Seite eine zweispaltige Arbeitsfläche: Objektleiste
+`#side` links (300 px, scrollt eigenständig), Plan und Bedienleisten in `#main` rechts.
+Darunter läuft alles gestapelt, Plan zuerst und Objektliste danach (`order` im Flex).
+
+Der Umschalter ist die Klasse **`js` am `<body>`**, die das Skript direkt nach der
+SVG-Prüfung setzt. Ohne Skript greift keine der Shell-Regeln – der statische Plan bleibt
+so gestapelt und lesbar, wie ihn die iOS-Dateivorschau braucht. Neue Layout-Regeln für die
+Arbeitsansicht deshalb immer mit `body.js` davor.
+
+Der Plan füllt die Resthöhe über `flex:1` und das SVG liegt darin `position:absolute;inset:0` –
+so muss Safari keine prozentuale Höhe in einem Flex-Element auflösen (`height:auto` am SVG
+bleibt trotzdem tabu, siehe Fallstricke). Der `@media print`-Block muss Shell-Regeln mit
+gleicher Spezifität zurücksetzen (`body.js …`), sonst schneidet `overflow:hidden` den Druck ab.
 
 ## Geometrie-Konventionen
 

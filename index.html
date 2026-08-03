@@ -71,11 +71,47 @@
   textarea{width:100%;height:70px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
     font-family:var(--mono);font-size:12px;padding:8px;border-radius:4px;display:none}
   textarea.on{display:block}
+
+  /* ---- Arbeitsansicht Desktop: Objektleiste links, Plan rechts ----
+     Greift nur, wenn das Skript läuft (body.js). Ohne JS bleibt alles gestapelt,
+     damit der statische Plan in der iOS-Dateivorschau lesbar bleibt. */
+  #side{min-width:0}
+  #side .sidehead{display:none}
+  @media (min-width:900px){
+    body.js{height:100vh;height:100dvh;overflow:hidden}
+    body.js #viewonly{display:none}
+    body.js .wrap{max-width:none;height:100%;display:grid;
+      grid-template-columns:300px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+      grid-template-areas:"head head" "side main"}
+    body.js header{grid-area:head}
+    body.js #side{grid-area:side;overflow-y:auto;border-right:1px solid var(--line)}
+    body.js #main{grid-area:main;display:flex;flex-direction:column;overflow-y:auto}
+    body.js #side .sidehead{display:block;padding:12px 14px 2px}
+    body.js #side .palgrp{padding:10px 0;border-bottom:1px solid var(--line)}
+    body.js #side .chips{flex-direction:column;gap:5px;overflow:visible}
+    body.js #side .chips button{width:100%;justify-content:space-between}
+    body.js #side .chips.custom{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    body.js #side .chips.custom input{width:100%}
+    body.js #side .chips.custom input[type=text],
+    body.js #side .chips.custom button{grid-column:1/-1}
+    /* Plan füllt die Restfläche; absolut positioniert, damit Safari die Höhe
+       nicht selbst ausrechnen muss (height:auto am SVG bleibt tabu). */
+    body.js #planwrap{flex:1 1 auto;height:auto;min-height:340px}
+    body.js svg#plan{position:absolute;inset:0}
+  }
+  /* Mobil ist Ansichtsmedium, nicht Arbeitsmedium: Plan zuerst, Liste darunter */
+  @media (max-width:899px){
+    body.js .wrap{display:flex;flex-direction:column}
+    body.js #main{order:1}
+    body.js #side{order:2}
+  }
   @media print{
-    #viewonly,header,details,.bar,.palgrp,.hint,.zoom{display:none!important}
-    body{background:#fff}
-    #planwrap{height:auto;background:#fff;border:0}
-    svg#plan{height:auto;aspect-ratio:32/42}
+    #viewonly,header,details,.bar,.palgrp,.hint,.zoom,#side{display:none!important}
+    body,body.js{background:#fff;height:auto;overflow:visible}
+    body.js .wrap{display:block;max-width:none;height:auto}
+    body.js #main{display:block;overflow:visible}
+    #planwrap,body.js #planwrap{height:auto;min-height:0;background:#fff;border:0}
+    svg#plan,body.js svg#plan{position:static;height:auto;aspect-ratio:32/42}
   }
 </style>
 </head>
@@ -92,6 +128,12 @@
     <div class="val" id="hdr">2 Parzellen quer · 3 tief · 20×30 m</div>
   </header>
 
+  <aside id="side">
+    <div class="sidehead eyebrow">Objekte hinzufügen</div>
+    <div id="palette"></div>
+  </aside>
+
+  <div id="main">
   <details id="cfgbox">
     <summary>Fläche &amp; Luftbild einstellen</summary>
     <div class="fields">
@@ -246,8 +288,6 @@
 
   <div class="bar" id="insp"></div>
 
-  <div id="palette"></div>
-
   <div class="bar">
     <div class="stat" id="stats">6 Parzellen · 600 m² gebucht</div>
   </div>
@@ -263,9 +303,10 @@
   </div>
 
   <div class="hint" id="hint">
-    Objekt antippen und ziehen · leere Fläche ziehen = Plan verschieben · zwei Finger = zoomen<br>
+    Objekt anklicken und ziehen · leere Fläche ziehen = Plan verschieben · Zoom über <kbd>+</kbd> <kbd>−</kbd> <kbd>FIT</kbd> rechts unten<br>
     Tastatur: <kbd>R</kbd> +15° · <kbd>Q</kbd> +90° · <kbd>D</kbd> duplizieren · <kbd>Entf</kbd> löschen · <kbd>←↑↓→</kbd> 25 cm
   </div>
+  </div><!-- /#main -->
 </div>
 
 <script>
@@ -273,6 +314,7 @@
 "use strict";
 var svg=document.getElementById("plan");
 if(!svg||!svg.getBoundingClientRect){ return; }               // ohne SVG-Unterstützung bleibt der statische Plan stehen
+document.body.classList.add("js");                            // schaltet die Arbeitsansicht mit Objektleiste frei
 
 var MG=6, NS="http://www.w3.org/2000/svg", XL="http://www.w3.org/1999/xlink";
 var BG={iw:697, ih:795, bx:410, by:254, bw:91, bh:147, src:""};
@@ -481,7 +523,7 @@ function updateStats(){
 
 function updateInsp(){
   insp.innerHTML="";
-  if(!sel){ insp.innerHTML="<span class='stat'>Kein Objekt gewählt – unten etwas hinzufügen oder im Plan antippen.</span>"; return; }
+  if(!sel){ insp.innerHTML="<span class='stat'>Kein Objekt gewählt – aus der Objektliste wählen oder im Plan anklicken.</span>"; return; }
   var nm=document.createElement("input"); nm.type="text"; nm.value=sel.n;
   nm.oninput=function(){ sel.n=nm.value; render(); };
   insp.appendChild(tx(Object.assign(document.createElement("span"),{className:"nm"}),"Objekt"));
@@ -526,10 +568,13 @@ function delSel(){ if(!sel)return; objs=objs.filter(function(o){return o!==sel})
   });
   var g2=document.createElement("div"); g2.className="palgrp";
   g2.appendChild(tx(Object.assign(document.createElement("div"),{className:"lbl"}),"Eigenes Objekt"));
-  var row=document.createElement("div"); row.className="chips";
+  var row=document.createElement("div"); row.className="chips custom";
   var nm=document.createElement("input"); nm.type="text"; nm.placeholder="Bezeichnung";
+  nm.setAttribute("aria-label","Bezeichnung");
   var iw=document.createElement("input"); iw.type="number"; iw.step="0.1"; iw.value="2";
+  iw.title="Breite in Meter"; iw.setAttribute("aria-label","Breite in Meter");
   var ih=document.createElement("input"); ih.type="number"; ih.step="0.1"; ih.value="2";
+  ih.title="Tiefe in Meter"; ih.setAttribute("aria-label","Tiefe in Meter");
   var ok=document.createElement("button"); ok.textContent="Hinzufügen";
   ok.onclick=function(){ var w=parseFloat(iw.value),h=parseFloat(ih.value);
     if(w>0&&h>0) addObj("fl",nm.value||"Fläche",w,h); };

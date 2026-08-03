@@ -3,11 +3,15 @@
 Interaktiver Belegungsplan für die gebuchten Parzellen. Statische Seite ohne Build-Schritt:
 `index.html` enthält Markup, CSS und JS, `luftbild.jpg` liegt daneben.
 
+Geplant wird am Desktop: Objektleiste links, Plan rechts. Auf dem Handy ist die Seite zum
+Anschauen gedacht – der Plan steht oben, die Objektliste darunter.
+
 Live: https://sb-parzellen-planer.vercel.app/
 
 ## Bedienung
 
-- Objekt antippen und ziehen · leere Fläche ziehen verschiebt den Plan · zwei Finger zoomen
+- Objekt aus der Leiste links wählen, im Plan anklicken und ziehen
+- Leere Fläche ziehen verschiebt den Plan · Zoom über `+` `−` `FIT` rechts unten (mobil: zwei Finger)
 - Tastatur: `R` +15° · `Q` +90° · `D` duplizieren · `Entf` löschen · Pfeiltasten 25 cm
 - Fläche und Luftbild-Justage oben unter „Fläche & Luftbild einstellen"
 - „Als Text" exportiert das Layout als Zeichenkette zum Weitergeben, „Text einlesen" liest es zurück
