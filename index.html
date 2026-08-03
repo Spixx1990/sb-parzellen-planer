@@ -55,6 +55,8 @@
   button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
   #insp{min-height:44px}
   #insp .nm{font-weight:600}
+  #who{width:92px}
+  #share select{max-width:190px}
 
   .palgrp{padding:8px 0 2px}
   .palgrp .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);
@@ -175,9 +177,16 @@
     <div class="stat" id="stats">6 Parzellen · 600 m² gebucht</div>
   </div>
 
+  <div class="bar" id="share">
+    <span class="stat" id="syncstat">Gemeinsamer Plan wird geladen …</span>
+    <label class="f">Kürzel <input type="text" id="who" maxlength="20" placeholder="z. B. PH"></label>
+    <label class="f">Vorversion <select id="hist"><option value="">–</option></select></label>
+    <button id="btnhist">Zurückholen</button>
+  </div>
+
   <div class="bar">
-    <button id="btnsave">Speichern</button>
-    <button id="btnload">Laden</button>
+    <button id="btnsave" title="Schreibt den Plan für alle, die den Link haben">Für alle speichern</button>
+    <button id="btnload" title="Holt den Stand, den zuletzt jemand gespeichert hat">Stand holen</button>
     <button id="btntext">Als Text</button>
     <button id="btnread">Text einlesen</button>
     <button id="btnprint">Drucken / PDF</button>
@@ -187,7 +196,9 @@
 
   <div class="hint" id="hint">
     Objekt anklicken und ziehen · leere Fläche ziehen = Plan verschieben · Zoom über <kbd>+</kbd> <kbd>−</kbd> <kbd>FIT</kbd> rechts unten<br>
-    Tastatur: <kbd>R</kbd> +15° · <kbd>Q</kbd> +90° · <kbd>D</kbd> duplizieren · <kbd>Entf</kbd> löschen · <kbd>←↑↓→</kbd> 25 cm
+    Tastatur: <kbd>R</kbd> +15° · <kbd>Q</kbd> +90° · <kbd>D</kbd> duplizieren · <kbd>Entf</kbd> löschen · <kbd>←↑↓→</kbd> 25 cm<br>
+    „Für alle speichern“ schreibt den Plan für jeden, der den Link hat – beim Öffnen erscheint immer der letzte Stand.
+    Wer zwischenzeitlich überschrieben wird, wird gefragt; die letzten zehn Stände stehen als Vorversion bereit.
   </div>
   </div><!-- /#main -->
 </div>
@@ -586,25 +597,133 @@ function flash(btn,text){ var old=btn.textContent; btn.textContent=text; setTime
 function localSet(v){ try{ if(window.localStorage){ localStorage.setItem("stellplatz:layout",v); return true; } }catch(e){} return false; }
 function localGet(){ try{ if(window.localStorage) return localStorage.getItem("stellplatz:layout"); }catch(e){} return null; }
 
+/* ---------- Gemeinsamer Plan ----------
+   Ein Stand für alle, die den Link haben. Geschrieben wird nur mit dem Schlüssel
+   aus dem Link (?k=… oder #k=…). Der geladene Stand trägt eine Nummer (rev); wer
+   mit einer veralteten Nummer speichert, bekommt 409 und wird gefragt. Ist der
+   Speicher nicht eingerichtet oder der Server weg, bleibt alles lokal bedienbar. */
+var API="/api/layout";
+var shared={configured:false,rev:0,savedAt:"",savedBy:""};
+var syncstat=document.getElementById("syncstat"),
+    who=document.getElementById("who"),
+    histSel=document.getElementById("hist");
+
+function wkey(){ var m=/[?&#]k=([^&#]*)/.exec(location.search+location.hash);
+  return m?decodeURIComponent(m[1]):""; }
+function hhmm(iso){ var d=new Date(iso);
+  return isNaN(d)?"":("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2); }
+function tag(iso){ var d=new Date(iso), n=new Date();
+  if(isNaN(d)) return "";
+  var heute=d.toDateString()===n.toDateString();
+  return heute?hhmm(iso):d.getDate()+"."+(d.getMonth()+1)+". "+hhmm(iso); }
+function stat(html){ if(syncstat) syncstat.innerHTML=html; }
+function statCur(){
+  if(!shared.configured){ stat("<span class='bad'>Gemeinsamer Speicher nicht eingerichtet</span> · Speichern wirkt nur auf diesem Gerät"); return; }
+  if(!shared.savedAt){ stat("Gemeinsamer Plan · <b>noch nichts gespeichert</b>"); return; }
+  stat("Gemeinsamer Plan · zuletzt <b>"+tag(shared.savedAt)+"</b>"+
+       (shared.savedBy?" von <b>"+esc(shared.savedBy)+"</b>":"")+
+       (wkey()?"":" · <span class='bad'>Nur-Lesen, Schlüssel fehlt im Link</span>"));
+}
+function esc(s){ return String(s).replace(/[<>&"]/g,function(c){
+  return {"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]; }); }
+
+/* Ohne fetch/Promise gibt es keinen gemeinsamen Plan – dann still lokal bleiben.
+   Wichtig: der Aufruf muss ein Promise zurückgeben und darf nicht synchron werfen,
+   sonst läuft der Aufrufer in einen unbehandelten Fehler. */
+function canNet(){ return typeof fetch==="function" && typeof Promise==="function"; }
+function api(opts){
+  if(!canNet()) return Promise.reject(new Error("kein fetch"));
+  return fetch(opts.url||API,{method:opts.method||"GET",cache:"no-store",
+      headers:opts.body?{"content-type":"application/json"}:undefined,
+      body:opts.body?JSON.stringify(opts.body):undefined})
+    .then(function(r){ return r.json().catch(function(){return {};})
+      .then(function(j){ return {status:r.status,j:j}; }); });
+}
+
+/* Aktuellen Stand holen. first=true beim Seitenaufruf: dann ohne Meldungen. */
+function pull(first,btn){
+  if(!canNet()){ shared.configured=false; statCur(); if(btn) flash(btn,"Nicht möglich"); return; }
+  return api({}).then(function(res){
+    var j=res.j;
+    shared.configured=!!j.configured;
+    if(res.status===503||!j.configured){ statCur(); if(btn) flash(btn,"Kein Speicher"); return false; }
+    shared.rev=j.rev||0; shared.savedAt=j.savedAt||""; shared.savedBy=j.savedBy||"";
+    if(j.layout){ try{ restore(j.layout); }catch(e){ if(btn) flash(btn,"Stand unlesbar"); } }
+    statCur(); loadHist();
+    if(btn) flash(btn,j.layout?"Geholt ✓":"Nichts da");
+    return !!j.layout;
+  }).catch(function(){
+    shared.configured=false;
+    stat("<span class='bad'>Server nicht erreichbar</span> · Speichern wirkt nur auf diesem Gerät");
+    if(btn) flash(btn,"Kein Server");
+    return false;
+  });
+}
+
+function loadHist(){
+  if(!histSel||!shared.configured) return;
+  api({url:API+"?history=1"}).then(function(res){
+    var h=(res.j&&res.j.history)||[];
+    histSel.innerHTML="<option value=''>–</option>";
+    h.forEach(function(e,i){
+      var o=document.createElement("option");
+      o.value=String(i); o._layout=e.layout;
+      o.textContent=tag(e.savedAt)+(e.savedBy?" · "+e.savedBy:"")+(i===0?" (aktuell)":"");
+      histSel.appendChild(o);
+    });
+  }).catch(function(){});
+}
+
+function push(btn,force){
+  var snap=snapshot();
+  if(!canNet()){ if(localSet(snap)) flash(btn,"Nur lokal ✓"); else { io.classList.add("on"); io.value=snap; } return; }
+  api({method:"POST",body:{layout:snap,rev:shared.rev,by:who?who.value:"",key:wkey(),force:!!force}})
+  .then(function(res){
+    var j=res.j;
+    if(res.status===200){
+      shared.rev=j.rev; shared.savedAt=j.savedAt; shared.savedBy=j.savedBy;
+      statCur(); loadHist(); flash(btn,"Für alle gespeichert ✓"); return;
+    }
+    if(res.status===409){
+      flash(btn,"Konflikt");
+      var wer=(j.savedBy?j.savedBy+" ":"")+"um "+tag(j.savedAt);
+      if(window.confirm("Zwischenzeitlich hat "+wer+" gespeichert.\n\nDeinen Stand trotzdem darüberschreiben?\nAbbrechen holt stattdessen den fremden Stand – deine Änderungen gehen dabei verloren, sichere sie vorher über „Als Text“."))
+        push(btn,true);
+      else pull(false,btn);
+      return;
+    }
+    if(res.status===403){ statCur(); flash(btn,"Kein Schlüssel"); return; }
+    /* Kein Speicher oder Serverfehler: lokal sichern, damit nichts verloren geht */
+    shared.configured=!!(j&&j.configured);
+    statCur();
+    if(localSet(snap)) flash(btn,"Nur lokal ✓"); else { io.classList.add("on"); io.value=snap; flash(btn,"Als Text sichern"); }
+  }).catch(function(){
+    shared.configured=false; statCur();
+    if(localSet(snapshot())) flash(btn,"Nur lokal ✓"); else { io.classList.add("on"); io.value=snapshot(); }
+  });
+}
+
 document.getElementById("btnsave").onclick=function(){
-  var b=this, snap=snapshot(), done=false;
-  try{ if(window.storage&&window.storage.set){ done=true;
-    window.storage.set("stellplatz:layout",snap).then(function(){flash(b,"Gespeichert ✓");})
-      .catch(function(){ if(!localSet(snap)){ io.classList.add("on"); io.value=snap; } else flash(b,"Gespeichert ✓"); });
-  } }catch(e){}
-  if(!done){ if(localSet(snap)) flash(b,"Gespeichert ✓"); else { io.classList.add("on"); io.value=snap; } }
+  var b=this;
+  if(!shared.configured){ var s=snapshot();
+    if(localSet(s)) flash(b,"Nur lokal ✓"); else { io.classList.add("on"); io.value=s; }
+    return; }
+  push(b,false);
 };
 document.getElementById("btnload").onclick=function(){
   var b=this;
-  try{ if(window.storage&&window.storage.get){
-    window.storage.get("stellplatz:layout").then(function(res){
-      if(res&&res.value){ restore(res.value); flash(b,"Geladen ✓"); }
-      else { var l=localGet(); if(l){ restore(l); flash(b,"Geladen ✓"); } else flash(b,"Nichts da"); }
-    }).catch(function(){ var l=localGet(); if(l){ restore(l); flash(b,"Geladen ✓"); } else flash(b,"Nichts da"); });
-    return;
-  } }catch(e){}
-  var l=localGet(); if(l){ restore(l); flash(b,"Geladen ✓"); } else flash(b,"Nichts da");
+  if(shared.configured){ pull(false,b); return; }
+  var l=localGet(); if(l){ restore(l); flash(b,"Lokal geladen ✓"); } else flash(b,"Nichts da");
 };
+document.getElementById("btnhist").onclick=function(){
+  var b=this, o=histSel.options[histSel.selectedIndex];
+  if(!o||!o._layout){ flash(b,"Nichts gewählt"); return; }
+  try{ restore(o._layout); flash(b,"Zurückgeholt ✓");
+    stat("Vorversion <b>"+esc(o.textContent)+"</b> geladen – erst <b>„Für alle speichern“</b> macht sie für alle gültig.");
+  }catch(e){ flash(b,"Unlesbar"); }
+};
+if(who){ try{ who.value=localStorage.getItem("stellplatz:who")||""; }catch(e){}
+  who.oninput=function(){ try{ localStorage.setItem("stellplatz:who",who.value); }catch(e){} }; }
 document.getElementById("btntext").onclick=function(){ io.classList.add("on"); io.value=snapshot(); io.select();
   try{ if(navigator.clipboard) navigator.clipboard.writeText(io.value); }catch(e){} };
 document.getElementById("btnread").onclick=function(){
@@ -618,6 +737,7 @@ document.getElementById("btnclear").onclick=function(){ objs=[]; sel=null; rende
 /* ---------- Start ---------- */
 if(window.innerWidth>820){ document.getElementById("cfgbox").open=true; }
 fit(); render();
+pull(true,null);   /* gemeinsamen Stand nachladen; der Beispielplan steht bis dahin */
 })();
 </script>
 </body>

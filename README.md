@@ -17,6 +17,26 @@ Live: https://sb-parzellen-planer.vercel.app/
 - „Als Text" exportiert das Layout als Zeichenkette zum Weitergeben, „Text einlesen" liest es zurück
 - „Drucken / PDF" gibt nur den Plan aus, ohne Bedienleisten
 
+## Gemeinsam nutzen
+
+Wer den Link öffnet, sieht den letzten gespeicherten Stand. „Für alle speichern" schreibt den
+Plan für alle – kein Login, kein Konto. Ändern kann nur, wer den Schlüssel im Link hat
+(`…vercel.app/?k=DEINSCHLÜSSEL`); ohne Schlüssel ist die Seite Nur-Lesen und sagt das oben an.
+
+Hat zwischenzeitlich jemand anderes gespeichert, wird nachgefragt statt überschrieben. Die
+letzten zehn Stände stehen als „Vorversion" zum Zurückholen bereit.
+
+### Einrichtung (einmalig, im Vercel-Dashboard)
+
+1. **Storage → Create Database → Upstash Redis** anlegen und mit dem Projekt verbinden.
+   `UPSTASH_REDIS_REST_URL` und `UPSTASH_REDIS_REST_TOKEN` setzt Vercel dabei selbst.
+2. **Settings → Environment Variables**: `PLAN_WRITE_KEY` anlegen, Wert frei wählen – das ist
+   der Schlüssel für den Link.
+3. Einmal neu deployen (Deployments → Redeploy), damit die Variablen greifen.
+
+Solange das nicht eingerichtet ist, bleibt die Seite voll bedienbar; „Speichern" wirkt dann nur
+im eigenen Browser und die Statuszeile weist darauf hin.
+
 ## Vorgaben
 
 - Parzelle 10 × 10 m (100 m²), gebucht 2 quer × 3 tief = 20 × 30 m = 600 m²

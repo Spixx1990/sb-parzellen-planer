@@ -15,12 +15,16 @@ Live: `https://sb-parzellen-planer.vercel.app/`
 | Datei | Zweck |
 |---|---|
 | `index.html` | Die komplette Anwendung: Markup, CSS und JS in einer Datei. Einzige Quelle, direkt bearbeitbar. |
+| `api/layout.js` | Serverfunktion für den gemeinsamen Plan: liest und schreibt das Layout in Upstash Redis. |
 | `luftbild.jpg` | Google-Maps-Luftbild des Platzes, 697×795 px. Wird relativ referenziert. |
 | `vercel.json` | Noindex-Header, `Referrer-Policy: no-referrer`. |
 | `robots.txt` | Sperrt alle Crawler. |
 
-Kein Build-Schritt, kein Framework, keine Abhängigkeiten. Vercel-Preset: **Other**,
-Build Command und Output Directory leer.
+Kein Build-Schritt, kein Framework, **keine npm-Abhängigkeiten** – auch die Serverfunktion
+nicht: Upstash spricht REST, `fetch` genügt. Deshalb gibt es bewusst **keine `package.json`**;
+die Funktion ist CommonJS (`module.exports`), weil Vercel `api/*.js` ohne `package.json` so
+auflöst. Ein `export default` würde hier scheitern. Vercel-Preset: **Other**, Build Command und
+Output Directory leer.
 
 ## Architektur
 
@@ -52,6 +56,39 @@ Der Plan füllt die Resthöhe über `flex:1` und das SVG liegt darin `position:a
 so muss Safari keine prozentuale Höhe in einem Flex-Element auflösen (`height:auto` am SVG
 bleibt trotzdem tabu, siehe Fallstricke). Der `@media print`-Block muss Shell-Regeln mit
 gleicher Spezifität zurücksetzen (`body.js …`), sonst schneidet `overflow:hidden` den Druck ab.
+
+## Gemeinsamer Plan (ein Stand für alle)
+
+Wer den Link hat, sieht beim Öffnen den letzten gespeicherten Stand; „Für alle speichern“
+schreibt ihn für alle. Kein Login. Der Speicher ist **Upstash Redis über REST**, angesprochen
+von `api/layout.js`. Die Zugangsdaten liegen als Umgebungsvariablen auf dem Server und stehen
+nie im HTML:
+
+| Variable | Zweck |
+|---|---|
+| `UPSTASH_REDIS_REST_URL` | Adresse der Upstash-Datenbank |
+| `UPSTASH_REDIS_REST_TOKEN` | Token dazu, bleibt serverseitig |
+| `PLAN_WRITE_KEY` | frei gewählter Schlüssel; **Lesen ist offen, Schreiben nur damit** |
+
+Der Client liest den Schlüssel aus dem Link (`?k=…` oder `#k=…`). Ohne Schlüssel ist die Seite
+Nur-Lesen und sagt das auch. Redis-Schlüssel: `plan:current` (aktueller Datensatz),
+`plan:rev` (Zähler), `plan:history` (Liste, neuester zuerst, auf 10 gekürzt).
+
+**Kollisionsschutz statt stillem Überschreiben:** jeder Stand hat eine Nummer (`rev`). Der
+Client schickt beim Speichern die Nummer, die er geladen hat. Ist inzwischen eine neuere da,
+antwortet die Funktion mit **409** und der Nutzer wird gefragt – überschreiben (`force:true`)
+oder den fremden Stand holen. Wer das ändert, muss diesen Pfad mitdenken, sonst geht wieder
+Arbeit verloren.
+
+**Immer bedienbar bleiben:** fehlen die Umgebungsvariablen, antwortet die Funktion mit 503 und
+`configured:false`; ist der Server weg, schlägt `fetch` fehl. In beiden Fällen fällt die Seite
+auf `localStorage` zurück und schreibt das in die Statuszeile. Diese Rückfallebene nicht
+wegoptimieren – sie hält die Seite auch beim lokalen Entwickeln über `python3 -m http.server`
+benutzbar, wo es gar kein `/api` gibt.
+
+Da getippte Bezeichnungen jetzt auf einem fremden Server landen, gilt der Hinweis „keine
+Klarnamen, keine personenbezogenen Daten“ strenger als vorher. Das Feld „Kürzel“ ist dafür
+gedacht, ein Kürzel aufzunehmen, keinen Namen; es liegt lokal im Browser.
 
 ## Geometrie-Konventionen
 
@@ -102,6 +139,15 @@ console.log('Objekte:',d.querySelectorAll('#dyn g.obj').length);"
 
 Erwartet: 23 Chips, über 100 Plan-Elemente, 5 Objekte. Bleibt `#dyn` leer, ist `render()`
 nicht durchgelaufen – dann die Konsole auf einen Skriptfehler prüfen.
+
+Das Skript steckt als Text im HTML, ein Tippfehler bleibt darin unsichtbar. Deshalb bei jeder
+JS-Änderung zusätzlich die Syntax prüfen – ein unmaskiertes `"` in einer deutschen Anführung
+(`„…“`) hat das schon einmal lautlos die ganze Seite gekostet:
+
+```bash
+python3 -c "import re;open('/tmp/c.js','w').write(re.search(r'<script>(.*)</script>',open('index.html').read(),re.S).group(1))" \
+  && node --check /tmp/c.js && echo "Syntax in Ordnung"
+```
 
 ## Deployment-Workflow
 
