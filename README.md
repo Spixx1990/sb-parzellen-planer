@@ -1,28 +1,26 @@
 # Stellplatz-Planer
 
-Interaktiver Belegungsplan für die gebuchten Parzellen. Eine einzige HTML-Datei,
-Luftbild als Base64 eingebettet, keine externen Abhängigkeiten, kein Build-Schritt.
+Interaktiver Belegungsplan für die gebuchten Parzellen. Statische Seite ohne Build-Schritt:
+`index.html` enthält Markup, CSS und JS, `luftbild.jpg` liegt daneben.
 
-## Deployment (Vercel Hobby, privates Repo)
-
-1. Privates Repo auf GitHub anlegen, Dateien hochladen (`index.html`, `vercel.json`, `robots.txt`).
-2. Auf vercel.com → **Add New… → Project** → Repo importieren.
-3. Framework Preset: **Other**. Build Command und Output Directory leer lassen.
-4. Deploy. Die Produktions-URL ist danach öffentlich erreichbar –
-   Suchmaschinen werden per `robots.txt` und `X-Robots-Tag` ausgeschlossen.
-
-Änderung am Plan: `index.html` im Repo ersetzen, Vercel deployt automatisch neu.
+Live: https://sb-parzellen-planer.vercel.app/
 
 ## Bedienung
 
-- Objekt antippen und ziehen; leere Fläche ziehen verschiebt den Plan; zwei Finger zoomen.
-- Tastatur: `R` +15°, `Q` +90°, `D` duplizieren, `Entf` löschen, Pfeiltasten 25 cm.
-- Fläche und Luftbild-Justage oben unter „Fläche & Luftbild einstellen".
-- „Als Text" exportiert das Layout als Zeichenkette zum Weitergeben, „Text einlesen" liest es zurück.
+- Objekt antippen und ziehen · leere Fläche ziehen verschiebt den Plan · zwei Finger zoomen
+- Tastatur: `R` +15° · `Q` +90° · `D` duplizieren · `Entf` löschen · Pfeiltasten 25 cm
+- Fläche und Luftbild-Justage oben unter „Fläche & Luftbild einstellen"
+- „Als Text" exportiert das Layout als Zeichenkette zum Weitergeben, „Text einlesen" liest es zurück
+- „Drucken / PDF" gibt nur den Plan aus, ohne Bedienleisten
 
 ## Vorgaben
 
-- Parzelle 10 × 10 m (100 m²), gebucht 2 quer × 3 tief = 600 m².
-- Luftbild-Justage: X 0,5 · Y −2 · Zoom 103 % · Drehung 6°.
-- Das Luftbild ist ein Google-Maps-Ausschnitt inklusive Wasserzeichen – nur intern verwenden,
-  nicht veröffentlichen.
+- Parzelle 10 × 10 m (100 m²), gebucht 2 quer × 3 tief = 20 × 30 m = 600 m²
+- Luftbild-Justage: X 0,5 · Y −2 · Zoom 103 % · Drehung 6°
+
+## Deployment
+
+Vercel, Preset **Other**, Build Command und Output Directory leer. Push auf `main` deployt
+in Produktion, Push auf einen Branch erzeugt eine Preview-URL.
+
+Technische Details, Konventionen und Fallstricke stehen in `CLAUDE.md`.
